@@ -1,2 +1,5 @@
 node_modules/
 .env
+/node_modules/.vite/deps/@supabase_supabase-js.js?v=aa1ec085:7165:13)
+   at createClient (/node_modules/.vite/deps/@supabase_supabase-js.js?v=aa1ec085:7353:10)
+   at /src/lib/supabase.ts:7:25
