@@ -1,1 +1,1 @@
-# fuckthisshit
+# SnackHack-Cooking Platform
