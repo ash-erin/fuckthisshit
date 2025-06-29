@@ -1,309 +1,320 @@
-import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { Hero } from './components/Hero';
-import { ContentRow } from './components/ContentRow';
-import { VideoPlayer } from './components/VideoPlayer';
-import { MovieModal } from './components/MovieModal';
-import { SearchResults } from './components/SearchResults';
-import { ProfileDropdown } from './components/ProfileDropdown';
-import { NotificationDropdown } from './components/NotificationDropdown';
-import { SettingsModal } from './components/SettingsModal';
-import { HelpModal } from './components/HelpModal';
-import { LogoutModal } from './components/LogoutModal';
-import { featuredMovie, contentRows, movies, getMostLikedMovies } from './data/movies';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import { Movie } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import Header from './components/Header';
+import Navigation from './components/Navigation';
+import RecipeCarousel from './components/RecipeCarousel';
+import FilterPanel from './components/FilterPanel';
+import SearchResults from './components/SearchResults';
+import BookmarksPage from './components/BookmarksPage';
+import RecipeDetailPage from './components/RecipeDetailPage';
+import LoadingSpinner from './components/LoadingSpinner';
+import { useRecipes } from './hooks/useRecipes';
+import { useRealtimeSearch } from './hooks/useRealtimeSearch';
+import { useBookmarks } from './hooks/useBookmarks';
+import { SearchFilters, Recipe } from './types';
 
-function App() {
-  const [currentMovie, setCurrentMovie] = useState<Movie | null>(null);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+const App: React.FC = () => {
+  const { 
+    recipes, 
+    loading, 
+    error, 
+    getRecipesByCuisine, 
+    getMostPopularRecipes,
+    getRecipeById 
+  } = useRecipes();
+  
+  const { bookmarkedRecipeIds } = useBookmarks();
+  
+  const [currentPage, setCurrentPage] = useState('home');
+  const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
+  const [recipeLoading, setRecipeLoading] = useState(false);
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Movie[]>([]);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [myList, setMyList] = useLocalStorage<string[]>('project-mylist', []);
-  const [searchSuggestions, setSearchSuggestions] = useState<Movie[]>([]);
-  const [movieLikes, setMovieLikes] = useLocalStorage<Record<string, number>>('project-likes', {});
-  const [userLikes, setUserLikes] = useLocalStorage<string[]>('project-user-likes', []);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<SearchFilters>({
+    query: '',
+    cuisines: [],
+    mealTypes: [],
+    cookingTimeRange: [0, 300],
+    difficulty: [],
+    dietaryTags: [],
+    tools: [],
+    budgetLevel: []
+  });
 
+  // Update filters when search query changes
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
-    };
+    setFilters(prev => ({ ...prev, query: searchQuery }));
+  }, [searchQuery]);
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Use real-time search hook
+  const { 
+    searchResults, 
+    isSearching, 
+    searchError, 
+    hasSearched, 
+    totalResults 
+  } = useRealtimeSearch(filters);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    if (query.trim()) {
-      // Get all movies from regular movies array and content rows
-      const allMovies = [...movies];
-      
-      // Add movies from content rows that aren't already in the regular movies array
-      contentRows.forEach(row => {
-        row.movies.forEach(movie => {
-          if (!allMovies.find(m => m.id === movie.id)) {
-            allMovies.push(movie);
-          }
-        });
-      });
-      
-      const results = allMovies.filter(movie =>
-        movie.title.toLowerCase().includes(query.toLowerCase()) ||
-        movie.description.toLowerCase().includes(query.toLowerCase()) ||
-        movie.genre.some(g => g.toLowerCase().includes(query.toLowerCase()))
-      );
-      setSearchResults(results);
-      setSearchSuggestions(results.slice(0, 6)); // Limit suggestions to 6 items
-    } else {
-      setSearchResults([]);
-      setSearchSuggestions([]);
+  // Memoized cuisine carousels
+  const cuisineCarousels = useMemo(() => {
+    return getRecipesByCuisine();
+  }, [getRecipesByCuisine]);
+
+  // Memoized popular recipes
+  const popularRecipes = useMemo(() => {
+    return getMostPopularRecipes(10);
+  }, [getMostPopularRecipes]);
+
+  // Memoized bookmarked recipes
+  const bookmarkedRecipes = useMemo(() => {
+    return recipes.filter(recipe => bookmarkedRecipeIds.includes(recipe.id));
+  }, [recipes, bookmarkedRecipeIds]);
+
+  const isSearchActive = searchQuery || filters.cuisines.length > 0 || filters.mealTypes.length > 0 || 
+                        filters.difficulty.length > 0 || filters.dietaryTags.length > 0 || 
+                        filters.tools.length > 0 || filters.budgetLevel.length > 0 ||
+                        filters.cookingTimeRange[0] > 0 || filters.cookingTimeRange[1] < 300;
+
+  // Handle recipe click
+  const handleRecipeClick = async (recipeId: string) => {
+    setCurrentPage('recipe');
+    setRecipeLoading(true);
+    
+    try {
+      const recipe = await getRecipeById(recipeId);
+      setCurrentRecipe(recipe);
+    } catch (error) {
+      console.error('Error loading recipe:', error);
+      setCurrentRecipe(null);
+    } finally {
+      setRecipeLoading(false);
     }
   };
 
-  const handleMovieSelect = (movie: Movie) => {
-    setSelectedMovie(movie);
+  // Handle back from recipe
+  const handleBackFromRecipe = () => {
+    setCurrentPage('home');
+    setCurrentRecipe(null);
   };
 
-  const handlePlay = (movie: Movie) => {
-    setCurrentMovie(movie);
+  // Handle page changes
+  const handlePageChange = (page: string) => {
+    setCurrentPage(page);
+    setCurrentRecipe(null);
+    
+    // Clear search when navigating away from search page
+    if (page !== 'search') {
+      setSearchQuery('');
+      setFilters({
+        query: '',
+        cuisines: [],
+        mealTypes: [],
+        cookingTimeRange: [0, 300],
+        difficulty: [],
+        dietaryTags: [],
+        tools: [],
+        budgetLevel: []
+      });
+    }
   };
 
-  const handleAddToList = (movie: Movie) => {
-    setMyList(prev => 
-      prev.includes(movie.id) 
-        ? prev.filter(id => id !== movie.id)
-        : [...prev, movie.id]
+  // Mock like function (in real app, this would update the database)
+  const handleLike = (recipeId: string) => {
+    console.log('Liked recipe:', recipeId);
+    // In a real app, you would increment the like count in the database
+  };
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center bg-white rounded-2xl p-8 shadow-lg max-w-md mx-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-600 text-2xl">⚠️</span>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Recipes</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-500">
+            Make sure your Supabase connection is configured properly.
+          </p>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const handleMoreInfo = (movie: Movie) => {
-    setSelectedMovie(movie);
-  };
-
-  const handleSignOut = () => {
-    setShowLogoutModal(true);
-  };
-
-  const handleConfirmLogout = () => {
-    setShowLogoutModal(false);
-    // In a real app, this would clear auth tokens and redirect to login
-    console.log('Signing out...');
-  };
-
-  const handleLogoClick = () => {
-    // This function is no longer needed as we handle it in Header
-    // but keeping it for backward compatibility
-    window.location.reload();
-  };
-
-  const handleNotificationClick = () => {
-    setShowNotificationDropdown(!showNotificationDropdown);
-    setShowProfileDropdown(false);
-  };
-
-  const handleProfileClick = () => {
-    setShowProfileDropdown(!showProfileDropdown);
-    setShowNotificationDropdown(false);
-  };
-
-  const handleLike = (movie: Movie) => {
-    if (userLikes.includes(movie.id)) {
-      // Remove like
-      setUserLikes(prev => prev.filter(id => id !== movie.id));
-      setMovieLikes(prev => ({
-        ...prev,
-        [movie.id]: Math.max(0, (prev[movie.id] || movie.likes || 0) - 1)
-      }));
-    } else {
-      // Add like
-      setUserLikes(prev => [...prev, movie.id]);
-      setMovieLikes(prev => ({
-        ...prev,
-        [movie.id]: (prev[movie.id] || movie.likes || 0) + 1
-      }));
-    }
-  };
-
-  // Update movies with current like counts
-  const moviesWithUpdatedLikes = movies.map(movie => ({
-    ...movie,
-    likes: movieLikes[movie.id] || movie.likes || 0
-  }));
-
-  // Update content rows with current like counts
-  const updatedContentRows = contentRows.map(row => {
-    if (row.id === 'most-liked') {
-      // Get all movies from regular movies array and custom content rows
-      const allMoviesForLiking = [...moviesWithUpdatedLikes];
-      
-      // Add custom movies from content rows to the liking system
-      contentRows.forEach(contentRow => {
-        if (contentRow.id !== 'most-liked') {
-          contentRow.movies.forEach(movie => {
-            // Only add if it's not already in the regular movies array
-            if (!moviesWithUpdatedLikes.find(m => m.id === movie.id)) {
-              const updatedMovie = {
-                ...movie,
-                likes: movieLikes[movie.id] || movie.likes || 0
-              };
-              allMoviesForLiking.push(updatedMovie);
-            }
-          });
-        }
-      });
-      
-      const mostLiked = allMoviesForLiking
-        .sort((a, b) => (b.likes || 0) - (a.likes || 0))
-        .slice(0, 12);
-      return { ...row, movies: mostLiked };
-    }
-    return {
-      ...row,
-      movies: row.movies.map(movie => 
-        moviesWithUpdatedLikes.find(m => m.id === movie.id) || movie
-      )
-    };
-  });
-
-  // Also include custom movies from content rows that are in myList
-  const myListMovies = movies.filter(movie => myList.includes(movie.id));
-  
-  // Get custom movies from content rows that are in myList (avoiding duplicates)
-  const customMoviesInMyList: Movie[] = [];
-  const addedIds = new Set(myListMovies.map(m => m.id));
-  
-  contentRows.forEach(row => {
-    row.movies.forEach(movie => {
-      if (myList.includes(movie.id) && !addedIds.has(movie.id)) {
-        // Apply current like count to custom movies
-        const updatedMovie = {
-          ...movie,
-          likes: movieLikes[movie.id] || movie.likes || 0
-        };
-        customMoviesInMyList.push(updatedMovie);
-        addedIds.add(movie.id);
-      }
-    });
-  });
-  
-  const allMyListMovies = [...myListMovies, ...customMoviesInMyList];
-  
-  const finalContentRows = allMyListMovies.length > 0 
-    ? [{ id: 'mylist', title: 'My List', movies: allMyListMovies }, ...updatedContentRows]
-    : updatedContentRows;
+  // Recipe detail page
+  if (currentPage === 'recipe') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header
+          searchQuery=""
+          onSearchChange={() => {}}
+          onFilterToggle={() => {}}
+          showSearch={false}
+        />
+        <RecipeDetailPage
+          recipe={currentRecipe}
+          onBack={handleBackFromRecipe}
+          onLike={currentRecipe ? () => handleLike(currentRecipe.id) : undefined}
+          loading={recipeLoading}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#081932' }}>
+    <div className="min-h-screen bg-gray-50">
       <Header
-        onSearch={handleSearch}
-        onProfileClick={handleProfileClick}
-        onNotificationClick={handleNotificationClick}
-        onLogoClick={handleLogoClick}
-        isScrolled={isScrolled}
-        searchSuggestions={searchSuggestions}
-        onMovieSelect={handleMovieSelect}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterToggle={() => setIsFilterOpen(true)}
+        showSearch={currentPage === 'search' || currentPage === 'home'}
       />
 
-      <ProfileDropdown
-        isOpen={showProfileDropdown}
-        onClose={() => setShowProfileDropdown(false)}
-        onSignOut={handleSignOut}
-        onSettings={() => setShowSettingsModal(true)}
-        onHelp={() => setShowHelpModal(true)}
+      <Navigation
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
       />
 
-      <NotificationDropdown
-        isOpen={showNotificationDropdown}
-        onClose={() => setShowNotificationDropdown(false)}
+      <FilterPanel
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
       />
 
-      <SettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
+      <main className="pb-8">
+        {/* Home Page */}
+        {currentPage === 'home' && (
+          <>
+            {isSearchActive ? (
+              <SearchResults
+                recipes={searchResults}
+                query={searchQuery}
+                isLoading={isSearching}
+                error={searchError}
+                totalResults={totalResults}
+                hasSearched={hasSearched}
+              />
+            ) : (
+              <div className="space-y-8 pt-8">
+                {/* Hero Section */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-red-500 to-pink-600">
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="container mx-auto px-4 py-20 text-center relative">
+                    <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
+                      Discover Your Next
+                      <span className="block bg-gradient-to-r from-yellow-200 to-orange-200 bg-clip-text text-transparent">
+                        Culinary Adventure
+                      </span>
+                    </h1>
+                    <p className="text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
+                      Explore thousands of recipes from around the world with real-time search and live updates.
+                    </p>
+                  </div>
+                </div>
 
-      <HelpModal
-        isOpen={showHelpModal}
-        onClose={() => setShowHelpModal(false)}
-      />
+                {/* Featured Carousels */}
+                <div className="container mx-auto">
+                  {/* Most Popular Recipes */}
+                  {popularRecipes.length > 0 && (
+                    <RecipeCarousel
+                      title="🔥 Most Popular"
+                      recipes={popularRecipes}
+                      onRecipeClick={handleRecipeClick}
+                      onLike={handleLike}
+                    />
+                  )}
 
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirmLogout={handleConfirmLogout}
-      />
+                  {/* My Bookmarks */}
+                  {bookmarkedRecipes.length > 0 && (
+                    <RecipeCarousel
+                      title="📚 My List"
+                      recipes={bookmarkedRecipes}
+                      onRecipeClick={handleRecipeClick}
+                      onLike={handleLike}
+                    />
+                  )}
 
-      {searchQuery ? (
-        <SearchResults
-          query={searchQuery}
-          results={searchResults}
-          onPlay={handlePlay}
-          onAddToList={handleAddToList}
-          onMoreInfo={handleMoreInfo}
-          myList={myList}
-        />
-      ) : (
-        <>
-          <Hero
-            movie={featuredMovie}
-            onPlay={handlePlay}
-            onAddToList={handleAddToList}
-            onMoreInfo={handleMoreInfo}
-            myList={myList}
-          />
-
-          <div className="relative -mt-16 z-10">
-            {finalContentRows.map((row) => (
-              <div
-                key={row.id}
-               data-content-row
-                id={row.id === 'mylist' ? 'mylist-section' : undefined}
-                data-section={row.id === 'most-liked' ? 'most-popular' : undefined}
-                className={row.id === 'mylist' ? 'pt-8' : ''}
-              >
-                <ContentRow
-                  title={row.title}
-                  movies={row.movies}
-                  onPlay={handlePlay}
-                  onAddToList={handleAddToList}
-                  onMoreInfo={handleMoreInfo}
-                  isMyListRow={row.id === 'mylist'}
-                  myList={myList}
-                />
+                  {/* Cuisine Carousels */}
+                  {cuisineCarousels.length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="bg-white rounded-2xl p-8 shadow-lg max-w-md mx-auto">
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No recipes found</h3>
+                        <p className="text-gray-600">
+                          Connect to your Supabase database and add some recipes to get started.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    cuisineCarousels.map((carousel) => (
+                      <RecipeCarousel
+                        key={carousel.cuisine}
+                        title={`${carousel.cuisine} Cuisine`}
+                        recipes={carousel.recipes}
+                        onRecipeClick={handleRecipeClick}
+                        onLike={handleLike}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
-            ))}
+            )}
+          </>
+        )}
+
+        {/* Search Page */}
+        {currentPage === 'search' && (
+          <SearchResults
+            recipes={searchResults}
+            query={searchQuery}
+            isLoading={isSearching}
+            error={searchError}
+            totalResults={totalResults}
+            hasSearched={hasSearched}
+          />
+        )}
+
+        {/* Bookmarks Page */}
+        {currentPage === 'bookmarks' && (
+          <BookmarksPage
+            recipes={recipes}
+            onRecipeClick={handleRecipeClick}
+            onLike={handleLike}
+          />
+        )}
+
+        {/* Popular Page */}
+        {currentPage === 'popular' && (
+          <div className="container mx-auto px-4 py-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">🔥 Most Popular Recipes</h1>
+              <p className="text-gray-600">
+                Discover the most loved recipes in our community
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {popularRecipes.map((recipe) => (
+                <div key={recipe.id} className="w-full max-w-none">
+                  <RecipeCard
+                    recipe={recipe}
+                    isSaved={bookmarkedRecipeIds.includes(recipe.id)}
+                    onSave={() => {}} // Handled by useBookmarks hook
+                    onRecipeClick={handleRecipeClick}
+                    onLike={() => handleLike(recipe.id)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        </>
-      )}
-
-      {currentMovie && (
-        <VideoPlayer
-          movie={currentMovie}
-          onClose={() => setCurrentMovie(null)}
-        />
-      )}
-
-      {selectedMovie && (
-        <MovieModal
-          movie={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
-          onPlay={handlePlay}
-          onAddToList={handleAddToList}
-          onLike={handleLike}
-          currentLikes={movieLikes[selectedMovie.id] || selectedMovie.likes || 0}
-          isLiked={userLikes.includes(selectedMovie.id)}
-          myList={myList}
-        />
-      )}
+        )}
+      </main>
     </div>
   );
-}
+};
 
 export default App;

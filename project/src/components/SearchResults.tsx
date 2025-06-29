@@ -1,138 +1,205 @@
 import React from 'react';
-import { Play, Plus, Info, X } from 'lucide-react';
-import { Movie } from '../types';
+import { Recipe } from '../types';
+import SearchResultItem from './SearchResultItem';
+import { useUserPreferences } from '../hooks/useUserPreferences';
+import { Search, AlertCircle, Loader2 } from 'lucide-react';
 
 interface SearchResultsProps {
+  recipes: Recipe[];
   query: string;
-  results: Movie[];
-  onPlay: (movie: Movie) => void;
-  onAddToList: (movie: Movie) => void;
-  onMoreInfo: (movie: Movie) => void;
-  myList?: string[];
+  isLoading: boolean;
+  error?: string | null;
+  totalResults?: number;
+  hasSearched?: boolean;
 }
 
-export const SearchResults: React.FC<SearchResultsProps> = ({
-  query,
-  results,
-  onPlay,
-  onAddToList,
-  onMoreInfo,
-  myList = [],
+const SearchResults: React.FC<SearchResultsProps> = ({ 
+  recipes, 
+  query, 
+  isLoading, 
+  error,
+  totalResults = 0,
+  hasSearched = false
 }) => {
-  if (!query) return null;
+  const { isLiked, isSaved, toggleLike, toggleSave } = useUserPreferences();
 
-  return (
-    <div className="min-h-screen pt-20 px-4 md:px-8" style={{ backgroundColor: '#081932' }}>
-      <h1 className="text-white text-2xl md:text-3xl font-bold mb-8">
-        Search results for "{query}"
-      </h1>
-
-      {results.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-white/60 text-lg mb-4">No results found</p>
-          <p className="text-white/40">Try searching for something else</p>
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-white rounded-2xl p-8 shadow-lg">
+          <div className="flex items-center justify-center space-x-3">
+            <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+            <span className="text-lg font-medium text-gray-700">Searching recipes...</span>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-20">
-          {results.map((movie) => {
-            const isInMyList = myList.includes(movie.id);
-            
-            return (
-              <div
-              key={movie.id}
-              className="group cursor-pointer"
-             onClick={() => onMoreInfo(movie)}
-            >
-              <div className="relative overflow-hidden rounded-md transition-transform duration-300 group-hover:scale-105">
-                <img
-                  src={movie.thumbnail}
-                  alt={movie.title}
-                  className="w-full h-48 md:h-64 object-cover"
-                />
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                <div className="absolute bottom-0 left-0 right-0 p-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 opacity-0 group-hover:opacity-100">
-                  <h3 className="text-white font-semibold text-sm mb-2 line-clamp-2">
-                    {movie.title}
-                  </h3>
-                  
-                  <div className="flex items-center space-x-2 mb-3">
-                    <span className="text-white/70 text-xs">{movie.genre.join(', ')}</span>
+        
+        {/* Loading skeleton */}
+        <div className="mt-8 space-y-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-pulse">
+              <div className="flex">
+                <div className="w-32 h-32 bg-gray-200" />
+                <div className="flex-1 p-4">
+                  <div className="h-5 bg-gray-200 rounded mb-2 w-3/4" />
+                  <div className="h-4 bg-gray-200 rounded mb-3 w-full" />
+                  <div className="flex space-x-4 mb-3">
+                    <div className="h-4 bg-gray-200 rounded w-16" />
+                    <div className="h-4 bg-gray-200 rounded w-20" />
+                    <div className="h-4 bg-gray-200 rounded w-16" />
                   </div>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       onPlay(movie);
-                     }}
-                      className="bg-white text-black p-2 rounded-full hover:bg-white/90 transition-colors"
-                    >
-                      <Play size={16} fill="currentColor" />
-                    </button>
-                    <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       onAddToList(movie);
-                     }}
-                      className={`p-2 rounded-full transition-all duration-200 group/button ${
-                        isInMyList
-                          ? 'text-white'
-                          : 'text-white'
-                      }`}
-                      style={{
-                        backgroundColor: isInMyList 
-                          ? 'rgba(239, 68, 68, 0.8)' 
-                          : 'rgba(34, 197, 94, 0.8)'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (isInMyList) {
-                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 1)';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 1)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (isInMyList) {
-                          e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.8)';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.8)';
-                        }
-                      }}
-                    >
-                      {isInMyList ? (
-                        <X size={16} />
-                      ) : (
-                        <Plus size={16} />
-                      )}
-                    </button>
-                    <button
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       onMoreInfo(movie);
-                     }}
-                      className="bg-gray-700/80 text-white p-2 rounded-full hover:bg-gray-700 transition-colors"
-                    >
-                      <Info size={16} />
-                    </button>
+                  <div className="h-3 bg-gray-200 rounded mb-3 w-5/6" />
+                  <div className="flex justify-between">
+                    <div className="h-6 bg-gray-200 rounded w-16" />
+                    <div className="h-6 bg-gray-200 rounded w-20" />
                   </div>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-              <div className="mt-2 px-1">
-                <h3 className="text-white text-sm font-medium line-clamp-2">
-                  {movie.title}
-                </h3>
-                <p className="text-white/60 text-xs mt-1">
-                  {movie.genre.join(', ')}
-                </p>
-              </div>
-              </div>
-            );
-          })}
+  // Error state
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="max-w-md mx-auto bg-white rounded-2xl p-8 shadow-lg border border-red-100">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Search Error</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-500">
+            Please try again or adjust your search criteria.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // No results state
+  if (hasSearched && recipes.length === 0 && !isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <div className="max-w-md mx-auto bg-white rounded-2xl p-8 shadow-lg">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search className="w-8 h-8 text-orange-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No recipes found</h3>
+          <p className="text-gray-600 mb-4">
+            {query 
+              ? `No recipes match "${query}" with your current filters.`
+              : 'No recipes match your current filters.'
+            }
+          </p>
+          <p className="text-sm text-gray-500">
+            Try adjusting your search terms or removing some filters to see more results.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Results display
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Results Header */}
+      <div className="mb-8 bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {query ? (
+                <>
+                  Search Results for <span className="text-orange-600">"{query}"</span>
+                </>
+              ) : (
+                'Filtered Recipes'
+              )}
+            </h2>
+            <p className="text-gray-600">
+              {isLoading ? (
+                <span className="flex items-center space-x-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Searching...</span>
+                </span>
+              ) : (
+                <>
+                  Found <span className="font-semibold text-gray-900">{totalResults}</span> recipe{totalResults !== 1 ? 's' : ''}
+                  {recipes.length !== totalResults && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      (showing first {recipes.length})
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+          
+          {/* Real-time indicator */}
+          <div className="flex items-center space-x-2 text-sm text-green-600">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <span>Live results</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Results List */}
+      <div className="space-y-4">
+        {recipes.map((recipe, index) => (
+          <div
+            key={recipe.id}
+            className="transform transition-all duration-300"
+            style={{
+              animationDelay: `${index * 50}ms`,
+              animation: 'fadeInUp 0.5s ease-out forwards'
+            }}
+          >
+            <SearchResultItem
+              recipe={recipe}
+              isLiked={isLiked(recipe.id)}
+              isSaved={isSaved(recipe.id)}
+              onLike={() => toggleLike(recipe.id)}
+              onSave={() => toggleSave(recipe.id)}
+              searchQuery={query}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Load more indicator */}
+      {recipes.length > 0 && recipes.length < totalResults && (
+        <div className="mt-8 text-center">
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <p className="text-gray-600">
+              Showing {recipes.length} of {totalResults} results
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Refine your search to see more specific results
+            </p>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+// Add CSS animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+document.head.appendChild(style);
+
+export default SearchResults;

@@ -1,276 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Bell, ChevronDown, User } from 'lucide-react';
-import { Movie } from '../types';
+import React, { useState } from 'react';
+import { Search, Filter, User, Zap } from 'lucide-react';
 
 interface HeaderProps {
-  onSearch: (query: string) => void;
-  onProfileClick: () => void;
-  onNotificationClick: () => void;
-  onLogoClick: () => void;
-  isScrolled: boolean;
-  searchSuggestions?: Movie[];
-  onMovieSelect?: (movie: Movie) => void;
+  onSearchChange: (query: string) => void;
+  onFilterToggle: () => void;
+  searchQuery: string;
+  showSearch?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
-  onSearch, 
-  onProfileClick, 
-  onNotificationClick,
-  onLogoClick,
-  isScrolled,
-  searchSuggestions = [],
-  onMovieSelect
+const Header: React.FC<HeaderProps> = ({ 
+  onSearchChange, 
+  onFilterToggle, 
+  searchQuery, 
+  showSearch = true 
 }) => {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(searchQuery);
-    setIsSearchOpen(false);
-    setShowSuggestions(false);
-  };
-
-  const handleInputChange = (value: string) => {
-    setSearchQuery(value);
-    onSearch(value);
-    setShowSuggestions(value.length > 0);
-  };
-
-  const handleSuggestionClick = (movie: Movie) => {
-    setSearchQuery('');
-    setIsSearchOpen(false);
-    setShowSuggestions(false);
-    onMovieSelect?.(movie);
-  };
-
-  const handleMyListClick = () => {
-    const myListElement = document.getElementById('mylist-section');
-    if (myListElement) {
-      myListElement.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }
-  };
-
-  const handlePopularClick = () => {
-    const mostPopularElement = document.querySelector('[data-section="most-popular"]');
-    if (mostPopularElement) {
-      // Get the title element within the section
-      const titleElement = mostPopularElement.querySelector('h2');
-      if (titleElement) {
-        // Calculate offset to account for fixed header
-        const headerHeight = 80; // Approximate header height
-        const elementTop = titleElement.getBoundingClientRect().top + window.pageYOffset;
-        const offsetPosition = elementTop - headerHeight;
-        
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
-      } else {
-        // Fallback to section scroll if title not found
-        mostPopularElement.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    }
-  };
-
-  const handleHomeClick = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setSearchQuery('');
-    onSearch(''); // Clear search results
-  };
-
-  const handleLogoClick = () => {
-    // Refresh the page when logo is clicked
-    window.location.reload();
-  };
-
-  const handleNavItemClick = (item: string) => {
-    // Clear search first
-    setSearchQuery('');
-    onSearch('');
-    
-    // Then handle navigation
-    if (item === 'My List') {
-      setTimeout(() => {
-        const myListElement = document.getElementById('mylist-section');
-        if (myListElement) {
-          myListElement.scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      }, 100);
-    } else if (item === 'Popular') {
-      setTimeout(() => {
-        const mostPopularElement = document.querySelector('[data-section="most-popular"]');
-        if (mostPopularElement) {
-          const titleElement = mostPopularElement.querySelector('h2');
-          if (titleElement) {
-            const headerHeight = 80;
-            const elementTop = titleElement.getBoundingClientRect().top + window.pageYOffset;
-            const offsetPosition = elementTop - headerHeight;
-            
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: 'smooth'
-            });
-          } else {
-            mostPopularElement.scrollIntoView({ 
-              behavior: 'smooth',
-              block: 'start'
-            });
-          }
-        }
-      }, 100);
-    } else if (item === 'Home') {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 100);
-    } else if (item === 'Practical Information') {
-      setTimeout(() => {
-        const contentRows = document.querySelectorAll('[data-content-row]');
-        if (contentRows.length >= 2) {
-          const secondRow = contentRows[1];
-          const titleElement = secondRow.querySelector('h2');
-          if (titleElement) {
-            const headerHeight = 80;
-            const elementTop = titleElement.getBoundingClientRect().top + window.pageYOffset;
-            const offsetPosition = elementTop - headerHeight;
-            
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: 'smooth'
-            });
-          }
-        }
-      }, 100);
-    }
-  };
-
-  const navItems = ['Home', 'Popular', 'My List', 'Practical Information'];
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled ? 'backdrop-blur-md' : 'bg-gradient-to-b to-transparent'
-    }`} style={{ backgroundColor: isScrolled ? 'rgba(8, 25, 50, 0.9)' : 'rgba(8, 25, 50, 0.8)' }}>
-      <div className="flex items-center justify-between px-4 md:px-8 py-4">
-        <div className="flex items-center space-x-8">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleLogoClick}
-              className="transition-opacity hover:opacity-80"
-            >
-              <img 
-                src="/src/assets/image copy.png" 
-                alt="SKÀ Logo" 
-                className="h-10 w-auto"
-                style={{ transform: 'scale(1.6)' }}
-              />
-            </button>
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg">CC</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-2xl font-bold text-gray-900">CulinaryCarousel</h1>
+              <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 rounded-full">
+                <Zap className="w-3 h-3 text-green-600" />
+                <span className="text-xs font-medium text-green-700">LIVE</span>
+              </div>
+            </div>
           </div>
-          <nav className="hidden md:flex items-center space-x-6">
-            {navItems.map((item, index) => (
-              <button
-                key={item}
-                onClick={() => handleNavItemClick(item)}
-                className="text-white hover:text-gray-300 transition-colors text-base font-medium px-2 py-1"
-              >
-                {item}
-              </button>
-            ))}
-          </nav>
-        </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            {isSearchOpen ? (
-              <div className="relative">
-                <form onSubmit={handleSearch} className="flex items-center">
-                  <input
-                    autoFocus
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    onBlur={() => {
-                      setTimeout(() => {
-                        if (!searchQuery) setIsSearchOpen(false);
-                        setShowSuggestions(false);
-                      }, 200);
-                    }}
-                    onFocus={() => searchQuery && setShowSuggestions(true)}
-                    placeholder="Search titles..."
-                    className="border border-gray-600 rounded px-3 py-1 text-white text-sm w-64 focus:outline-none"
-                    style={{ backgroundColor: 'rgba(8, 25, 50, 0.8)', borderColor: '#6b7280' }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = '#ddb870'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = '#6b7280'}
-                  />
-                </form>
-                
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 backdrop-blur-md border border-gray-700 rounded-md shadow-xl max-h-80 overflow-y-auto z-50" style={{ backgroundColor: 'rgba(8, 25, 50, 0.95)' }}>
-                    {searchSuggestions.slice(0, 6).map((movie) => (
-                      <div
-                        key={movie.id}
-                        onClick={() => handleSuggestionClick(movie)}
-                        className="flex items-center space-x-3 p-3 cursor-pointer transition-colors"
-                        style={{ ':hover': { backgroundColor: 'rgba(15, 47, 95, 0.5)' } }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(15, 47, 95, 0.5)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <img
-                          src={movie.thumbnail}
-                          alt={movie.title}
-                          className="w-12 h-8 object-cover rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-white text-sm font-medium truncate">
-                            {movie.title}
-                          </h4>
-                          <p className="text-white/60 text-xs">
-                            {movie.genre.slice(0, 2).join(', ')}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+          {/* Search Bar */}
+          {showSearch && (
+            <div className="flex-1 max-w-2xl mx-8">
+              <div className={`relative transition-all duration-300 ${
+                isSearchFocused ? 'transform scale-105' : ''
+              }`}>
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search recipes, ingredients, or cuisines..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent focus:bg-white transition-all duration-300 shadow-sm"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                {searchQuery && (
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                    <div className="flex items-center space-x-1 text-xs text-green-600">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span>Live</span>
+                    </div>
                   </div>
                 )}
               </div>
-            ) : (
+            </div>
+          )}
+
+          {/* Right Side Actions */}
+          <div className="flex items-center space-x-2">
+            {showSearch && (
               <button
-                onClick={() => setIsSearchOpen(true)}
-                className="text-white hover:text-gray-300 transition-colors p-2"
+                onClick={onFilterToggle}
+                className="p-3 text-gray-600 hover:text-orange-600 transition-colors duration-200 hover:bg-orange-50 rounded-xl relative"
+                aria-label="Open filters"
               >
-                <Search size={20} />
+                <Filter className="w-5 h-5" />
               </button>
             )}
+            <button 
+              className="p-3 text-gray-600 hover:text-gray-900 transition-colors duration-200 hover:bg-gray-100 rounded-xl"
+              aria-label="User profile"
+            >
+              <User className="w-5 h-5" />
+            </button>
           </div>
-
-          <button 
-            onClick={onNotificationClick}
-            className="text-white hover:text-gray-300 transition-colors p-2 relative"
-          >
-            <Bell size={20} />
-            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full" style={{ backgroundColor: '#ddb870' }}></div>
-          </button>
-
-          <button
-            onClick={onProfileClick}
-            className="flex items-center space-x-2 text-white hover:text-gray-300 transition-colors"
-          >
-            <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: '#ddb870' }}>
-              <User size={16} />
-            </div>
-            <ChevronDown size={16} />
-          </button>
         </div>
       </div>
     </header>
   );
 };
+
+export default Header;
